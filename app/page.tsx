@@ -7,6 +7,7 @@ type Point = { x: number; y: number }
 type Asteroid = Point & { r: number; speed: number; spin: number; angle: number; hue: number }
 type Burger = Point & { speed: number; rotation: number }
 type HeartPickup = Point & { pulse: number; speed: number }
+type ScorePopup = Point & { text: string; life: number; color: string }
 
 const WIDTH = 960
 const HEIGHT = 560
@@ -51,6 +52,25 @@ function drawHeartPickup(ctx: CanvasRenderingContext2D, pickup: HeartPickup) {
   ctx.font = '700 10px Geist Mono, monospace'
   ctx.textAlign = 'center'
   ctx.fillText('1-UP', 0, 3)
+  ctx.restore()
+}
+
+function drawScorePopup(ctx: CanvasRenderingContext2D, popup: ScorePopup) {
+  ctx.save()
+  ctx.globalAlpha = Math.min(1, popup.life / 25)
+  const scale = 1 + Math.max(0, popup.life - 45) / 30
+  ctx.translate(popup.x, popup.y)
+  ctx.scale(scale, scale)
+  ctx.font = '800 22px Geist Mono, monospace'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.lineWidth = 4
+  ctx.strokeStyle = 'rgba(7, 28, 22, .85)'
+  ctx.strokeText(popup.text, 0, 0)
+  ctx.shadowColor = popup.color
+  ctx.shadowBlur = 16
+  ctx.fillStyle = popup.color
+  ctx.fillText(popup.text, 0, 0)
   ctx.restore()
 }
 
@@ -120,7 +140,7 @@ function drawBus(ctx: CanvasRenderingContext2D, bus: Point, firing: boolean) {
 function SpaceGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const keysRef = useRef<Record<string, boolean>>({})
-  const gameRef = useRef({ bus: { x: 150, y: 280 }, asteroids: [] as Asteroid[], burgers: [] as Burger[], hearts: [] as HeartPickup[], stars: [] as Point[], score: 0, lives: 3, firing: false, lastShot: 0, lastSpawn: 0, lastHeart: 0, running: false })
+  const gameRef = useRef({ bus: { x: 150, y: 280 }, asteroids: [] as Asteroid[], burgers: [] as Burger[], hearts: [] as HeartPickup[], popups: [] as ScorePopup[], stars: [] as Point[], score: 0, lives: 3, firing: false, lastShot: 0, lastSpawn: 0, lastHeart: 0, running: false })
   const [score, setScore] = useState(0)
   const [lives, setLives] = useState(3)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -132,6 +152,7 @@ function SpaceGame() {
     state.asteroids = []
     state.burgers = []
     state.hearts = []
+    state.popups = []
     state.score = 0
     state.lives = 3
     state.lastSpawn = 0
@@ -198,6 +219,7 @@ function SpaceGame() {
             setLives(state.lives)
             state.score += 250
             setScore(state.score)
+            state.popups.push({ x: heart.x, y: heart.y, text: '+250', life: 60, color: '#ff8fa8' })
             return false
           }
           return heart.x > -40
@@ -210,6 +232,7 @@ function SpaceGame() {
             state.burgers.splice(hitBurger, 1)
             state.score += ASTEROID_POINTS
             setScore(state.score)
+            state.popups.push({ x: asteroid.x, y: asteroid.y, text: `+${ASTEROID_POINTS}`, life: 60, color: '#c8ed52' })
             return false
           }
           if (Math.hypot(state.bus.x - asteroid.x, state.bus.y - asteroid.y) < asteroid.r + 32) {
@@ -222,10 +245,13 @@ function SpaceGame() {
         })
       }
 
+      state.popups = state.popups.filter((popup) => { popup.y -= 0.9; popup.life -= 1; return popup.life > 0 })
+
       state.burgers.forEach((burger) => drawBurger(ctx, burger))
       state.hearts.forEach((heart) => drawHeartPickup(ctx, heart))
       state.asteroids.forEach((asteroid) => drawAsteroid(ctx, asteroid))
       drawBus(ctx, state.bus, state.firing || keysRef.current[' '])
+      state.popups.forEach((popup) => drawScorePopup(ctx, popup))
       frame = requestAnimationFrame(render)
     }
     frame = requestAnimationFrame(render)
@@ -241,8 +267,8 @@ function SpaceGame() {
       </header>
       <section className="hero-copy"><div><p className="eyebrow">VW-DELUXE / PILOT BRIEFING</p><h1>Grill the <em>galaxy.</em></h1><p className="lede">Your bus. Your burgers. Their bad orbit.</p></div><div className="high-score"><span>HIGH SCORE</span><strong>042,800</strong><small>+ 1,200 TODAY</small></div></section>
       <section className="game-card">
-        <div className="hud"><div className="hud-item"><span className="hud-label">SCORE</span><strong>{String(score).padStart(6, '0')}</strong></div><div className="hud-item"><span className="hud-label">BURGER FUEL</span><div className="fuel"><i /><i /><i /><i /><i /></div></div><div className="hud-item lives"><span className="hud-label">BUS INTEGRITY</span>{[0, 1, 2].map((heart) => <Heart key={heart} size={18} fill={heart < lives ? 'currentColor' : 'none'} />)}</div></div>
-        <div className="canvas-wrap"><canvas ref={canvasRef} width={WIDTH} height={HEIGHT} aria-label="Burger Orbit game canvas" /><div className="scanlines" />{!isPlaying && <div className="start-overlay"><div className="crosshair"><Crosshair size={44} /></div><p className="overlay-kicker">READY WHEN YOU ARE, CAPTAIN</p><h2>{lives === 0 ? 'THE BUS GOT TOASTED' : 'A VERY CHEESY MISSION'}</h2><p className="overlay-help">STEER WITH <b>WASD</b> OR ARROW KEYS <span>·</span> FIRE WITH <b>SPACE</b></p><button className="play-button" onClick={reset}>{lives === 0 ? 'RUN IT BACK' : 'START MISSION'} <span>→</span></button></div>}</div>
+        <div className="hud"><div className="hud-item score-readout"><span className="hud-label">SCORE</span><strong key={score} className={score > 0 ? 'score-bump' : undefined}>{String(score).padStart(6, '0')}</strong><span className="score-rule">+{ASTEROID_POINTS} PER ASTEROID</span></div><div className="hud-item"><span className="hud-label">BURGER FUEL</span><div className="fuel"><i /><i /><i /><i /><i /></div></div><div className="hud-item lives"><span className="hud-label">BUS INTEGRITY</span>{[0, 1, 2].map((heart) => <Heart key={heart} size={18} fill={heart < lives ? 'currentColor' : 'none'} />)}</div></div>
+        <div className="canvas-wrap"><canvas ref={canvasRef} width={WIDTH} height={HEIGHT} aria-label="Burger Orbit game canvas" /><div className="scanlines" />{!isPlaying && <div className="start-overlay"><div className="crosshair"><Crosshair size={44} /></div><p className="overlay-kicker">READY WHEN YOU ARE, CAPTAIN</p><h2>{lives === 0 ? 'THE BUS GOT TOASTED' : 'A VERY CHEESY MISSION'}</h2>{lives === 0 && <div className="final-score"><span>FINAL SCORE</span><strong>{String(score).padStart(6, '0')}</strong><small>{score / ASTEROID_POINTS >= 1 ? `≈ ${Math.floor(score / ASTEROID_POINTS)} ASTEROIDS' WORTH` : 'NO ASTEROIDS GRILLED'}</small></div>}<p className="overlay-help">STEER WITH <b>WASD</b> OR ARROW KEYS <span>·</span> FIRE WITH <b>SPACE</b></p><button className="play-button" onClick={reset}>{lives === 0 ? 'RUN IT BACK' : 'START MISSION'} <span>→</span></button></div>}</div>
         <div className="game-footer"><span><Gauge size={16} /> SPEED 88 MPH</span><span><span className="keycap">WASD</span> MOVE <span className="keycap">SPACE</span> LAUNCH BURGER</span><span className="status"><span className="live-dot" /> SYSTEMS NOMINAL</span></div>
       </section>
       <footer className="footer"><span>ALL SYSTEMS GO <i /> BURGER ORBIT ARCADE</span><span>© 1973—2026 VW-DELUXE <span className="footer-dot">✦</span> NO ASTEROIDS WERE FED</span></footer>
