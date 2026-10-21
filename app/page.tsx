@@ -10,6 +10,7 @@ type HeartPickup = Point & { pulse: number; speed: number }
 
 const WIDTH = 960
 const HEIGHT = 560
+const ASTEROID_POINTS = 10
 
 function drawBurger(ctx: CanvasRenderingContext2D, burger: Burger) {
   ctx.save()
@@ -207,7 +208,7 @@ function SpaceGame() {
           const hitBurger = state.burgers.findIndex((burger) => Math.hypot(burger.x - asteroid.x, burger.y - asteroid.y) < asteroid.r + 16)
           if (hitBurger >= 0) {
             state.burgers.splice(hitBurger, 1)
-            state.score += 100
+            state.score += ASTEROID_POINTS
             setScore(state.score)
             return false
           }
