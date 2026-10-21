@@ -12,23 +12,23 @@
 }
 
 :root {
-  --background: #0c1830;
-  --foreground: #edf4f0;
-  --ink: #0c1830;
-  --panel: #152643;
-  --line: #30466d;
-  --muted: #8ea2bd;
-  --cream: #edf4f0;
-  --yellow: #f6b73c;
-  --mint: #58e1ca;
-  --coral: #ee6c4d;
+  --background: #071c16;
+  --foreground: #eff8e9;
+  --ink: #071c16;
+  --panel: #0d3024;
+  --line: #245542;
+  --muted: #8eae98;
+  --cream: #eff8e9;
+  --yellow: #c8ed52;
+  --mint: #63e3a1;
+  --coral: #f18b70;
 }
 
 * { box-sizing: border-box; }
 html { background: var(--background); }
 body { margin: 0; background: var(--background); color: var(--foreground); font-family: Arial, sans-serif; }
 button { font: inherit; }
-.game-shell { min-height: 100vh; max-width: 1280px; margin: 0 auto; padding: 28px 42px 22px; background: #0c1830; }
+.game-shell { min-height: 100vh; max-width: 1280px; margin: 0 auto; padding: 28px 42px 22px; background: var(--background); }
 .topbar, .footer, .game-footer, .hud, .hero-copy, .brand, .mission, .sound-button, .status, .fuel, .lives { display: flex; align-items: center; }
 .topbar { justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 21px; }
 .brand { gap: 10px; font: 800 12px/0.9 'Arial Narrow', Arial, sans-serif; letter-spacing: .16em; }
@@ -59,7 +59,7 @@ h1 em { color: var(--yellow); font-style: normal; }
 .fuel i:last-child { background: var(--line); }
 .lives { gap: 7px; color: var(--coral); }
 .lives .hud-label { margin-right: 4px; }
-.canvas-wrap { position: relative; width: 100%; aspect-ratio: 12 / 7; background: #0c1830; }
+.canvas-wrap { position: relative; width: 100%; aspect-ratio: 12 / 7; background: var(--background); }
 canvas { display: block; width: 100%; height: 100%; image-rendering: auto; }
 .scanlines { position: absolute; inset: 0; pointer-events: none; opacity: .08; background: repeating-linear-gradient(0deg, transparent 0, transparent 3px, #fff 4px); mix-blend-mode: screen; }
 .start-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; background: rgba(12,24,48,.47); }
