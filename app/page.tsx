@@ -8,10 +8,17 @@ type Asteroid = Point & { r: number; speed: number; spin: number; angle: number;
 type Burger = Point & { speed: number; rotation: number }
 type HeartPickup = Point & { pulse: number; speed: number }
 type ScorePopup = Point & { text: string; life: number; color: string }
+type HotDogPickup = Point & { speed: number; bob: number }
+type HotDogMissile = Point & { speed: number; wobble: number }
+type Blast = Point & { radius: number; life: number }
 
 const WIDTH = 960
 const HEIGHT = 560
 const ASTEROID_POINTS = 10
+const HOT_DOGS_PER_PICKUP = 3
+const MAX_HOT_DOGS = 6
+const BLAST_RADIUS = 120
+const BLAST_LIFE = 32
 
 function drawBurger(ctx: CanvasRenderingContext2D, burger: Burger) {
   ctx.save()
@@ -71,6 +78,92 @@ function drawScorePopup(ctx: CanvasRenderingContext2D, popup: ScorePopup) {
   ctx.shadowBlur = 16
   ctx.fillStyle = popup.color
   ctx.fillText(popup.text, 0, 0)
+  ctx.restore()
+}
+
+function drawHotDog(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, rotation: number) {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.rotate(rotation)
+  ctx.scale(scale, scale)
+  ctx.shadowColor = '#ff8a3d'
+  ctx.shadowBlur = 18
+  // bun
+  ctx.fillStyle = '#f2b45c'
+  ctx.beginPath()
+  ctx.ellipse(0, 3, 22, 8, 0, 0, Math.PI * 2)
+  ctx.fill()
+  // sausage
+  ctx.fillStyle = '#c4452f'
+  ctx.beginPath()
+  ctx.ellipse(0, -1, 25, 5.5, 0, 0, Math.PI * 2)
+  ctx.fill()
+  // mustard zigzag
+  ctx.shadowBlur = 0
+  ctx.strokeStyle = '#ffe14d'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  for (let i = 0; i <= 8; i += 1) {
+    const px = -18 + i * 4.5
+    const py = -1 + (i % 2 === 0 ? -2.5 : 2.5)
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)
+  }
+  ctx.stroke()
+  ctx.restore()
+}
+
+function drawHotDogPickup(ctx: CanvasRenderingContext2D, pickup: HotDogPickup) {
+  const y = pickup.y + Math.sin(pickup.bob) * 6
+  ctx.save()
+  ctx.strokeStyle = 'rgba(255, 138, 61, .7)'
+  ctx.lineWidth = 2
+  ctx.setLineDash([5, 5])
+  ctx.lineDashOffset = -pickup.bob * 8
+  ctx.beginPath()
+  ctx.arc(pickup.x, y, 30, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.restore()
+  drawHotDog(ctx, pickup.x, y, 0.9, -0.35)
+  ctx.save()
+  ctx.fillStyle = '#ffd7b8'
+  ctx.font = '800 9px Geist Mono, monospace'
+  ctx.textAlign = 'center'
+  ctx.fillText(`+${HOT_DOGS_PER_PICKUP} AMMO`, pickup.x, y + 44)
+  ctx.restore()
+}
+
+function drawMissile(ctx: CanvasRenderingContext2D, missile: HotDogMissile) {
+  // exhaust trail
+  ctx.save()
+  for (let i = 1; i <= 5; i += 1) {
+    ctx.globalAlpha = 0.5 - i * 0.08
+    ctx.fillStyle = i % 2 ? '#ffb347' : '#ff6b3d'
+    ctx.beginPath()
+    ctx.arc(missile.x - 22 - i * 9, missile.y + Math.sin(missile.wobble + i) * 3, 6 - i * 0.8, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.restore()
+  drawHotDog(ctx, missile.x, missile.y, 1, Math.sin(missile.wobble) * 0.06)
+}
+
+function drawBlast(ctx: CanvasRenderingContext2D, blast: Blast) {
+  const t = 1 - blast.life / BLAST_LIFE
+  const radius = blast.radius * (0.35 + t * 0.65)
+  ctx.save()
+  ctx.globalAlpha = Math.max(0, 1 - t)
+  const gradient = ctx.createRadialGradient(blast.x, blast.y, 0, blast.x, blast.y, radius)
+  gradient.addColorStop(0, 'rgba(255, 241, 180, .95)')
+  gradient.addColorStop(0.4, 'rgba(255, 160, 60, .7)')
+  gradient.addColorStop(1, 'rgba(241, 80, 50, 0)')
+  ctx.fillStyle = gradient
+  ctx.beginPath()
+  ctx.arc(blast.x, blast.y, radius, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(255, 225, 77, .9)'
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.arc(blast.x, blast.y, blast.radius * (0.5 + t * 0.5), 0, Math.PI * 2)
+  ctx.stroke()
   ctx.restore()
 }
 
@@ -140,9 +233,10 @@ function drawBus(ctx: CanvasRenderingContext2D, bus: Point, firing: boolean) {
 function SpaceGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const keysRef = useRef<Record<string, boolean>>({})
-  const gameRef = useRef({ bus: { x: 150, y: 280 }, asteroids: [] as Asteroid[], burgers: [] as Burger[], hearts: [] as HeartPickup[], popups: [] as ScorePopup[], stars: [] as Point[], score: 0, lives: 3, firing: false, lastShot: 0, lastSpawn: 0, lastHeart: 0, running: false })
+  const gameRef = useRef({ bus: { x: 150, y: 280 }, asteroids: [] as Asteroid[], burgers: [] as Burger[], hearts: [] as HeartPickup[], popups: [] as ScorePopup[], hotDogPickups: [] as HotDogPickup[], missiles: [] as HotDogMissile[], blasts: [] as Blast[], hotDogs: 0, lastMissile: 0, lastHotDog: 0, stars: [] as Point[], score: 0, lives: 3, firing: false, lastShot: 0, lastSpawn: 0, lastHeart: 0, running: false, lastTime: 0 })
   const [score, setScore] = useState(0)
   const [lives, setLives] = useState(3)
+  const [hotDogs, setHotDogs] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
 
@@ -153,6 +247,12 @@ function SpaceGame() {
     state.burgers = []
     state.hearts = []
     state.popups = []
+    state.hotDogPickups = []
+    state.missiles = []
+    state.blasts = []
+    state.hotDogs = 0
+    state.lastHotDog = state.lastTime
+    setHotDogs(0)
     state.score = 0
     state.lives = 3
     state.lastSpawn = 0
@@ -171,15 +271,43 @@ function SpaceGame() {
     state.stars = Array.from({ length: 90 }, () => ({ x: Math.random() * WIDTH, y: Math.random() * HEIGHT }))
     let frame = 0
 
+    const fireHotDog = () => {
+      if (!state.running || state.hotDogs <= 0 || state.lastTime - state.lastMissile < 350) return
+      state.hotDogs -= 1
+      setHotDogs(state.hotDogs)
+      state.missiles.push({ x: state.bus.x + 50, y: state.bus.y, speed: 7.5, wobble: 0 })
+      state.lastMissile = state.lastTime
+    }
+
+    const detonate = (x: number, y: number) => {
+      state.blasts.push({ x, y, radius: BLAST_RADIUS, life: BLAST_LIFE })
+      let destroyed = 0
+      state.asteroids = state.asteroids.filter((asteroid) => {
+        if (Math.hypot(asteroid.x - x, asteroid.y - y) < BLAST_RADIUS + asteroid.r * 0.5) {
+          destroyed += 1
+          state.popups.push({ x: asteroid.x, y: asteroid.y, text: `+${ASTEROID_POINTS}`, life: 60, color: '#c8ed52' })
+          return false
+        }
+        return true
+      })
+      if (destroyed > 0) {
+        state.score += destroyed * ASTEROID_POINTS
+        setScore(state.score)
+      }
+      if (destroyed > 1) state.popups.push({ x, y: y - 34, text: `${destroyed}× COMBO`, life: 70, color: '#ffb347' })
+    }
+
     const handleKey = (event: KeyboardEvent, down: boolean) => {
       keysRef.current[event.key.toLowerCase()] = down
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) event.preventDefault()
       if (down && event.key === ' ') state.firing = true
+      if (down && !event.repeat && (event.key === 'e' || event.key === 'E' || event.key === 'Shift')) fireHotDog()
     }
     window.addEventListener('keydown', (event) => handleKey(event, true))
     window.addEventListener('keyup', (event) => { handleKey(event, false); if (event.key === ' ') state.firing = false })
 
     const render = (time: number) => {
+      state.lastTime = time
       ctx.fillStyle = '#0c1830'
       ctx.fillRect(0, 0, WIDTH, HEIGHT)
       ctx.fillStyle = '#112445'
@@ -224,6 +352,31 @@ function SpaceGame() {
           }
           return heart.x > -40
         })
+        if (time - state.lastHotDog > 7000) {
+          state.hotDogPickups.push({ x: WIDTH + 40, y: 60 + Math.random() * (HEIGHT - 130), speed: 2.2, bob: 0 })
+          state.lastHotDog = time
+        }
+        state.hotDogPickups = state.hotDogPickups.filter((pickup) => {
+          pickup.x -= pickup.speed
+          pickup.bob += 0.07
+          if (Math.hypot(state.bus.x - pickup.x, state.bus.y - pickup.y) < 44) {
+            state.hotDogs = Math.min(MAX_HOT_DOGS, state.hotDogs + HOT_DOGS_PER_PICKUP)
+            setHotDogs(state.hotDogs)
+            state.popups.push({ x: pickup.x, y: pickup.y, text: `+${HOT_DOGS_PER_PICKUP} HOT DOGS`, life: 70, color: '#ffb347' })
+            return false
+          }
+          return pickup.x > -50
+        })
+        state.missiles = state.missiles.filter((missile) => {
+          missile.x += missile.speed
+          missile.wobble += 0.3
+          const hit = state.asteroids.some((asteroid) => Math.hypot(missile.x - asteroid.x, missile.y - asteroid.y) < asteroid.r + 18)
+          if (hit || missile.x > WIDTH - 30) {
+            detonate(missile.x, missile.y)
+            return false
+          }
+          return true
+        })
         state.burgers = state.burgers.filter((burger) => { burger.x += burger.speed; burger.rotation += 0.08; return burger.x < WIDTH + 40 })
         state.asteroids.forEach((asteroid) => { asteroid.x -= asteroid.speed; asteroid.angle += asteroid.spin })
         state.asteroids = state.asteroids.filter((asteroid) => {
@@ -245,12 +398,16 @@ function SpaceGame() {
         })
       }
 
+      state.blasts = state.blasts.filter((blast) => { blast.life -= 1; return blast.life > 0 })
       state.popups = state.popups.filter((popup) => { popup.y -= 0.9; popup.life -= 1; return popup.life > 0 })
 
       state.burgers.forEach((burger) => drawBurger(ctx, burger))
       state.hearts.forEach((heart) => drawHeartPickup(ctx, heart))
+      state.hotDogPickups.forEach((pickup) => drawHotDogPickup(ctx, pickup))
       state.asteroids.forEach((asteroid) => drawAsteroid(ctx, asteroid))
+      state.missiles.forEach((missile) => drawMissile(ctx, missile))
       drawBus(ctx, state.bus, state.firing || keysRef.current[' '])
+      state.blasts.forEach((blast) => drawBlast(ctx, blast))
       state.popups.forEach((popup) => drawScorePopup(ctx, popup))
       frame = requestAnimationFrame(render)
     }
@@ -267,9 +424,9 @@ function SpaceGame() {
       </header>
       <section className="hero-copy"><div><p className="eyebrow">VW-DELUXE / PILOT BRIEFING</p><h1>Grill the <em>galaxy.</em></h1><p className="lede">Your bus. Your burgers. Their bad orbit.</p></div><div className="high-score"><span>HIGH SCORE</span><strong>042,800</strong><small>+ 1,200 TODAY</small></div></section>
       <section className="game-card">
-        <div className="hud"><div className="hud-item score-readout"><span className="hud-label">SCORE</span><strong key={score} className={score > 0 ? 'score-bump' : undefined}>{String(score).padStart(6, '0')}</strong><span className="score-rule">+{ASTEROID_POINTS} PER ASTEROID</span></div><div className="hud-item"><span className="hud-label">BURGER FUEL</span><div className="fuel"><i /><i /><i /><i /><i /></div></div><div className="hud-item lives"><span className="hud-label">BUS INTEGRITY</span>{[0, 1, 2].map((heart) => <Heart key={heart} size={18} fill={heart < lives ? 'currentColor' : 'none'} />)}</div></div>
-        <div className="canvas-wrap"><canvas ref={canvasRef} width={WIDTH} height={HEIGHT} aria-label="Burger Orbit game canvas" /><div className="scanlines" />{!isPlaying && <div className="start-overlay"><div className="crosshair"><Crosshair size={44} /></div><p className="overlay-kicker">READY WHEN YOU ARE, CAPTAIN</p><h2>{lives === 0 ? 'THE BUS GOT TOASTED' : 'A VERY CHEESY MISSION'}</h2>{lives === 0 && <div className="final-score"><span>FINAL SCORE</span><strong>{String(score).padStart(6, '0')}</strong><small>{score / ASTEROID_POINTS >= 1 ? `≈ ${Math.floor(score / ASTEROID_POINTS)} ASTEROIDS' WORTH` : 'NO ASTEROIDS GRILLED'}</small></div>}<p className="overlay-help">STEER WITH <b>WASD</b> OR ARROW KEYS <span>·</span> FIRE WITH <b>SPACE</b></p><button className="play-button" onClick={reset}>{lives === 0 ? 'RUN IT BACK' : 'START MISSION'} <span>→</span></button></div>}</div>
-        <div className="game-footer"><span><Gauge size={16} /> SPEED 88 MPH</span><span><span className="keycap">WASD</span> MOVE <span className="keycap">SPACE</span> LAUNCH BURGER</span><span className="status"><span className="live-dot" /> SYSTEMS NOMINAL</span></div>
+        <div className="hud"><div className="hud-item score-readout"><span className="hud-label">SCORE</span><strong key={score} className={score > 0 ? 'score-bump' : undefined}>{String(score).padStart(6, '0')}</strong><span className="score-rule">+{ASTEROID_POINTS} PER ASTEROID</span></div><div className="hud-item"><span className="hud-label">BURGER FUEL</span><div className="fuel"><i /><i /><i /><i /><i /></div></div><div className={`hud-item hot-dogs${hotDogs > 0 ? ' armed' : ''}`}><span className="hud-label">HOT DOG MISSILES</span><strong key={hotDogs} className="hot-dog-count">×{hotDogs}</strong><span className="keycap">E</span></div><div className="hud-item lives"><span className="hud-label">BUS INTEGRITY</span>{[0, 1, 2].map((heart) => <Heart key={heart} size={18} fill={heart < lives ? 'currentColor' : 'none'} />)}</div></div>
+        <div className="canvas-wrap"><canvas ref={canvasRef} width={WIDTH} height={HEIGHT} aria-label="Burger Orbit game canvas" /><div className="scanlines" />{!isPlaying && <div className="start-overlay"><div className="crosshair"><Crosshair size={44} /></div><p className="overlay-kicker">READY WHEN YOU ARE, CAPTAIN</p><h2>{lives === 0 ? 'THE BUS GOT TOASTED' : 'A VERY CHEESY MISSION'}</h2>{lives === 0 && <div className="final-score"><span>FINAL SCORE</span><strong>{String(score).padStart(6, '0')}</strong><small>{score / ASTEROID_POINTS >= 1 ? `≈ ${Math.floor(score / ASTEROID_POINTS)} ASTEROIDS' WORTH` : 'NO ASTEROIDS GRILLED'}</small></div>}<p className="overlay-help">STEER WITH <b>WASD</b> OR ARROW KEYS <span>·</span> FIRE WITH <b>SPACE</b> <span>·</span> GRAB 🌭 THEN PRESS <b>E</b> FOR AREA BLASTS</p><button className="play-button" onClick={reset}>{lives === 0 ? 'RUN IT BACK' : 'START MISSION'} <span>→</span></button></div>}</div>
+        <div className="game-footer"><span><Gauge size={16} /> SPEED 88 MPH</span><span><span className="keycap">WASD</span> MOVE <span className="keycap">SPACE</span> LAUNCH BURGER <span className="keycap">E</span> HOT DOG MISSILE</span><span className="status"><span className="live-dot" /> SYSTEMS NOMINAL</span></div>
       </section>
       <footer className="footer"><span>ALL SYSTEMS GO <i /> BURGER ORBIT ARCADE</span><span>© 1973—2026 VW-DELUXE <span className="footer-dot">✦</span> NO ASTEROIDS WERE FED</span></footer>
     </main>

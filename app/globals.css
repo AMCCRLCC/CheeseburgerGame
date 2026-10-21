@@ -63,7 +63,12 @@ h1 em { color: var(--yellow); font-style: normal; }
 .final-score span, .final-score small { color: var(--muted); font: 700 10px Arial, sans-serif; letter-spacing: .16em; }
 .final-score strong { color: var(--yellow); font: 800 44px/1 'Geist Mono', monospace; letter-spacing: -.04em; text-shadow: 0 0 22px rgba(200,237,82,.5); }
 .final-score small { color: var(--mint); }
-@media (prefers-reduced-motion: reduce) { .score-bump { animation: none; } }
+.hot-dogs { align-items: center; opacity: .55; transition: opacity .2s; }
+.hot-dogs.armed { opacity: 1; }
+.hot-dogs .keycap { margin-left: 0; }
+.hud .hot-dog-count { color: #ffb347; font-size: 22px; }
+.hot-dogs.armed .hot-dog-count { text-shadow: 0 0 14px rgba(255,179,71,.6); animation: score-bump .35s ease-out; }
+@media (prefers-reduced-motion: reduce) { .score-bump, .hot-dogs.armed .hot-dog-count { animation: none; } }
 .fuel { gap: 4px; }
 .fuel i { display: block; width: 26px; height: 8px; background: var(--yellow); transform: skew(-18deg); }
 .fuel i:last-child { background: var(--line); }
@@ -88,4 +93,4 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: auto; }
 .footer { justify-content: space-between; padding: 22px 2px 0; color: var(--muted); font: 700 9px Arial, sans-serif; }
 .footer i { display: inline-block; width: 4px; height: 4px; margin: 0 8px 2px; background: var(--coral); border-radius: 50%; }
 .footer-dot { margin-left: 16px; color: var(--yellow); }
-@media (max-width: 700px) { .game-shell { padding: 20px 16px; } .mission { display: none; } .hero-copy { align-items: flex-start; padding: 38px 4px 26px; } .high-score { padding-left: 16px; } .high-score strong { font-size: 20px; } .hud { padding: 0 13px; } .hud-item { gap: 7px; } .hud-label { font-size: 8px; } .score-readout strong { font-size: 24px; } .score-rule { display: none; } .fuel i { width: 14px; } .game-footer { flex-wrap: wrap; padding: 14px; line-height: 2.5; } .game-footer > span:nth-child(2) { display: none; } .footer { flex-direction: column; align-items: flex-start; gap: 8px; } }
+@media (max-width: 700px) { .game-shell { padding: 20px 16px; } .mission { display: none; } .hero-copy { align-items: flex-start; padding: 38px 4px 26px; } .high-score { padding-left: 16px; } .high-score strong { font-size: 20px; } .hud { padding: 0 13px; } .hud-item { gap: 7px; } .hud-label { font-size: 8px; } .score-readout strong { font-size: 24px; } .score-rule { display: none; } .hot-dogs .keycap { display: none; } .fuel i { width: 14px; } .game-footer { flex-wrap: wrap; padding: 14px; line-height: 2.5; } .game-footer > span:nth-child(2) { display: none; } .footer { flex-direction: column; align-items: flex-start; gap: 8px; } }
